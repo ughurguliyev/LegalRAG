@@ -41,11 +41,11 @@ async def stream_response(
 
         # Get chat history for context
         messages = await redis_service.get_session_messages(
-            session_id=session_id, limit=10  # Last 10 messages for context
+            session_id=session_id, limit=10
         )
 
-        # Perform RAG search
-        result = rag_service.query(question, k=settings.retrieval_k)
+        # Perform RAG search with streaming
+        result = rag_service.query_stream(question, k=settings.retrieval_k)
 
         # Prepare sources
         sources = []
@@ -62,23 +62,34 @@ async def stream_response(
                     )
                 )
 
-        # Stream the answer in chunks
-        answer = result.get("answer", "")
+        # Stream the answer
+        full_answer = ""
+        if "answer_stream" in result:
+            # Stream the LLM response in real-time
+            for text_chunk in result["answer_stream"]:
+                if text_chunk:
+                    full_answer += text_chunk
+                    chunk = StreamChunk(type="content", content=text_chunk, done=False)
+                    yield f"data: {chunk.model_dump_json()}\n\n"
+                    # Small delay for streaming effect
+                    await asyncio.sleep(0.01)
+        else:
+            # Fallback to non-streaming
+            answer = result.get("answer", "")
+            sentences = answer.split(". ")
 
-        # Split answer into sentences for streaming
-        sentences = answer.split(". ")
+            for i, sentence in enumerate(sentences):
+                if sentence.strip():
+                    # Add period back if not the last sentence
+                    if i < len(sentences) - 1:
+                        sentence += "."
 
-        for i, sentence in enumerate(sentences):
-            if sentence.strip():
-                # Add period back if not the last sentence
-                if i < len(sentences) - 1:
-                    sentence += "."
-
-                chunk = StreamChunk(type="content", content=sentence + " ", done=False)
-                yield f"data: {chunk.model_dump_json()}\n\n"
-
-                # Small delay for streaming effect
-                await asyncio.sleep(0.05)
+                    full_answer += sentence + " "
+                    chunk = StreamChunk(
+                        type="content", content=sentence + " ", done=False
+                    )
+                    yield f"data: {chunk.model_dump_json()}\n\n"
+                    await asyncio.sleep(0.05)
 
         # Send sources if requested
         if sources:
@@ -89,7 +100,7 @@ async def stream_response(
         await redis_service.add_message(
             session_id=session_id,
             role=MessageRole.ASSISTANT,
-            content=answer,
+            content=full_answer,
             metadata={
                 "sources": [s.model_dump() for s in sources],
                 "processing_time": time.time() - start_time,

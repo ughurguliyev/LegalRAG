@@ -1,6 +1,6 @@
 """Main RAG service for Azerbaijan Legal System"""
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 import chromadb
 import openai
 
@@ -67,6 +67,83 @@ class AzerbaijanLegalRAG:
         """Set up the retriever for semantic search"""
         self.retriever = SemanticRetriever(self.collection, self.embeddings)
 
+    def _process_search_results(self, relevant_docs: List) -> Dict[str, Any]:
+        """Process search results and extract information"""
+        article_references = []
+        relevant_contexts = []
+        law_codes_found = set()
+
+        for doc in relevant_docs:
+            # Extract law code info
+            law_code = doc.metadata.get("law_code", "unknown")
+            law_name_az = doc.metadata.get("law_name_az", "")
+            law_codes_found.add(f"{law_name_az} ({law_code})")
+
+            # Extract article reference
+            article_ref = self.llm_generator.extract_article_reference(doc)
+            if article_ref:
+                article_references.append(f"{law_name_az} - {article_ref}")
+
+            # Collect context
+            relevant_contexts.append(
+                {
+                    "content": doc.page_content,
+                    "law_code": law_code,
+                    "law_name": law_name_az,
+                    "article_ref": article_ref,
+                    "relevance_score": doc.metadata.get("relevance_score", 0),
+                }
+            )
+
+        # Create references summary
+        unique_refs = list(set(article_references))
+        references_summary = (
+            f"İstifadə olunan mənbələr: {', '.join(unique_refs)}"
+            if unique_refs
+            else "Maddə referansları tapılmadı"
+        )
+
+        return {
+            "contexts": relevant_contexts,
+            "references": references_summary,
+            "law_codes": list(law_codes_found),
+        }
+
+    def query_stream(self, question: str, k: int = 5) -> Dict[str, Any]:
+        """Query the legal system with streaming response"""
+        if not self.retriever:
+            raise ValueError("System not initialized. Retriever not available.")
+
+        try:
+            # Perform semantic search
+            relevant_docs = self.retriever.search(question, k=k)
+
+            # Process results
+            results = self._process_search_results(relevant_docs)
+
+            # Return metadata immediately, stream will contain the answer
+            return {
+                "question": question,
+                "answer_stream": self.llm_generator.generate_answer_stream(
+                    question, results["contexts"]
+                ),
+                "references": results["references"],
+                "law_codes": results["law_codes"],
+                "sources": results["contexts"],
+                "total_sources": len(results["contexts"]),
+            }
+
+        except Exception as e:
+            return {
+                "question": question,
+                "answer": f"Sorğu zamanı xəta baş verdi: {str(e)}",
+                "references": "",
+                "law_codes": [],
+                "sources": [],
+                "total_sources": 0,
+                "error": str(e),
+            }
+
     def query(self, question: str, k: int = 5) -> Dict[str, Any]:
         """Query the legal system"""
         if not self.retriever:
@@ -76,51 +153,19 @@ class AzerbaijanLegalRAG:
             # Perform semantic search
             relevant_docs = self.retriever.search(question, k=k)
 
-            # Extract and organize results
-            article_references = []
-            relevant_contexts = []
-            law_codes_found = set()
-
-            for doc in relevant_docs:
-                # Extract law code info
-                law_code = doc.metadata.get("law_code", "unknown")
-                law_name_az = doc.metadata.get("law_name_az", "")
-                law_codes_found.add(f"{law_name_az} ({law_code})")
-
-                # Extract article reference
-                article_ref = self.llm_generator.extract_article_reference(doc)
-                if article_ref:
-                    article_references.append(f"{law_name_az} - {article_ref}")
-
-                # Collect context
-                relevant_contexts.append(
-                    {
-                        "content": doc.page_content,
-                        "law_code": law_code,
-                        "law_name": law_name_az,
-                        "article_ref": article_ref,
-                        "relevance_score": doc.metadata.get("relevance_score", 0),
-                    }
-                )
+            # Process results
+            results = self._process_search_results(relevant_docs)
 
             # Generate answer using LLM
-            answer = self.llm_generator.generate_answer(question, relevant_contexts)
-
-            # Create references summary
-            unique_refs = list(set(article_references))
-            references_summary = (
-                f"İstifadə olunan mənbələr: {', '.join(unique_refs)}"
-                if unique_refs
-                else "Maddə referansları tapılmadı"
-            )
+            answer = self.llm_generator.generate_answer(question, results["contexts"])
 
             return {
                 "question": question,
                 "answer": answer,
-                "references": references_summary,
-                "law_codes": list(law_codes_found),
-                "sources": relevant_contexts,
-                "total_sources": len(relevant_contexts),
+                "references": results["references"],
+                "law_codes": results["law_codes"],
+                "sources": results["contexts"],
+                "total_sources": len(results["contexts"]),
             }
 
         except Exception as e:

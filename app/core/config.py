@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # OpenAI Settings
     openai_api_key: str = Field(..., env="OPENAI_API_KEY")
-    llm_model: str = Field(default="gpt-4", env="LLM_MODEL")
+    llm_model: str = Field(default="gpt-4-turbo", env="LLM_MODEL")
     llm_temperature: float = Field(default=0.1, env="LLM_TEMPERATURE")
 
     # Chroma Settings

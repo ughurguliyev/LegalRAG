@@ -21,12 +21,19 @@ class RedisService:
 
     async def connect(self):
         """Connect to Redis"""
-        self.redis_client = await redis.from_url(
-            settings.redis_url,
-            password=settings.redis_password,
-            db=settings.redis_db,
-            decode_responses=True,
-        )
+        redis_kwargs = self._build_redis_kwargs()
+        self.redis_client = await redis.from_url(settings.redis_url, **redis_kwargs)
+
+    def _build_redis_kwargs(self) -> dict:
+        """Build Redis connection kwargs based on settings"""
+        kwargs = {"decode_responses": True}
+
+        if settings.redis_password:
+            kwargs["password"] = settings.redis_password
+        if settings.redis_db is not None:
+            kwargs["db"] = settings.redis_db
+
+        return kwargs
 
     async def disconnect(self):
         """Disconnect from Redis"""
