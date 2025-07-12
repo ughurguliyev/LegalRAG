@@ -1,0 +1,31 @@
+# FastAPI and async web framework
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# Streaming support
+sse-starlette
+
+# Redis for session management
+redis[hiredis]
+
+# RAG components
+chromadb
+openai
+sentence-transformers
+langchain
+
+# PDF processing
+pdfplumber
+PyPDF2
+
+# Utilities
+python-dotenv
+python-multipart
+
+# Development tools (optional)
+pytest
+pytest-asyncio
+black
+isort
