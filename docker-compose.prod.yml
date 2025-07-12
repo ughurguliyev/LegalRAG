@@ -7,13 +7,7 @@ services:
     restart: always
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme}
-    healthcheck:
-      test:
-        ["CMD", "redis-cli", "--auth", "${REDIS_PASSWORD:-changeme}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     networks:
       - legal-rag-network
 
@@ -24,7 +18,7 @@ services:
     container_name: legal-rag-api
     restart: always
     environment:
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHROMA_API_KEY=${CHROMA_API_KEY}
       - CHROMA_TENANT_ID=${CHROMA_TENANT_ID}
@@ -35,11 +29,16 @@ services:
       - ENVIRONMENT=production
       - LOG_LEVEL=info
     depends_on:
-      redis:
-        condition: service_healthy
+      - redis
     volumes:
       - ./pdfs:/app/pdfs:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - legal-rag-network
     expose:
