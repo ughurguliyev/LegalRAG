@@ -26,6 +26,8 @@ services:
       - CHROMA_API_KEY=${CHROMA_API_KEY}
       - TOKENIZERS_PARALLELISM=false
       - PYTHONUNBUFFERED=1
+      # Development: Enable docs endpoints
+      - OPENAPI_URL=/openapi.json
     depends_on:
       redis:
         condition: service_healthy

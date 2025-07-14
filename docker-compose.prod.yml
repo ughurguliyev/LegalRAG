@@ -28,6 +28,8 @@ services:
       # Production settings
       - ENVIRONMENT=production
       - LOG_LEVEL=info
+      # Security: Disable docs endpoints in production
+      - OPENAPI_URL=
     depends_on:
       - redis
     volumes:
