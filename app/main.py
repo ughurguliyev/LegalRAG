@@ -35,6 +35,7 @@ app = FastAPI(
     version=settings.app_version,
     description="AI-powered legal assistant for Azerbaijan law codes",
     lifespan=lifespan,
+    openapi_url=settings.openapi_url,
 )
 
 # Configure CORS
@@ -62,7 +63,7 @@ async def health_check():
 @app.get("/")
 async def root():
     """API information"""
-    return {
+    base_info = {
         "app": settings.app_name,
         "version": settings.app_version,
         "description": "Azerbaijan Legal RAG API",
@@ -70,10 +71,20 @@ async def root():
             "chat": f"{settings.api_prefix}/chat",
             "chat_stream": f"{settings.api_prefix}/chat/stream",
             "chat_history": f"{settings.api_prefix}/chat/history/{{session_id}}",
-            "docs": "/docs",
-            "redoc": "/redoc",
         },
     }
+
+    # Include docs endpoints if they are enabled
+    docs_endpoints = {}
+    if settings.docs_url:
+        docs_endpoints["docs"] = settings.docs_url
+    if settings.redoc_url:
+        docs_endpoints["redoc"] = settings.redoc_url
+
+    if docs_endpoints:
+        base_info["endpoints"].update(docs_endpoints)
+
+    return base_info
 
 
 # Include routers

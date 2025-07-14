@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     debug: bool = Field(default=False, env="DEBUG")
 
+    # Docs Settings
+    openapi_url: str | None = Field(default="/openapi.json", env="OPENAPI_URL")
+
     # CORS Settings
     cors_origins: list[str] = Field(default=["*"], env="CORS_ORIGINS")
 

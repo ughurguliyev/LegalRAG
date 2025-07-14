@@ -493,7 +493,7 @@ raglegal/
 └── README.md                # This file
 ```
 
-## 🎯 Future Improvements (for Enhance Ventures :) )
+## 🎯 Future Improvements
 
 1. **Multi-modal Support**: Process legal diagrams and charts
 2. **Real-time Updates**: Webhook integration for law changes
