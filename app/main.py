@@ -74,16 +74,6 @@ async def root():
         },
     }
 
-    # Include docs endpoints if they are enabled
-    docs_endpoints = {}
-    if settings.docs_url:
-        docs_endpoints["docs"] = settings.docs_url
-    if settings.redoc_url:
-        docs_endpoints["redoc"] = settings.redoc_url
-
-    if docs_endpoints:
-        base_info["endpoints"].update(docs_endpoints)
-
     return base_info
 
 
